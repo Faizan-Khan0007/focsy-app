@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "734359558907",
+    "project_id": "focus-todo-app-cefe6",
+    "storage_bucket": "focus-todo-app-cefe6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:734359558907:android:1a931a3f087be752706e5e",
+        "android_client_info": {
+          "package_name": "com.example.my_todo_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "734359558907-gksill7b1e6pdj4ojvvksip21g1pc8j1.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBEZLKFcRKinAcxynTn3Ygi89wu1N6K67w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "734359558907-gksill7b1e6pdj4ojvvksip21g1pc8j1.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
