@@ -3,7 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:my_todo_app/features/auth/screens/auth_screen.dart';
 import 'package:my_todo_app/features/auth/screens/otp_screen.dart';
-import 'package:my_todo_app/features/tasks/screens/todo.dart';
+import 'package:my_todo_app/features/tasks/screens/tasks_screen.dart';
 
 Route<dynamic> generateRoute(RouteSettings routeSettings){
   switch(routeSettings.name){
@@ -11,10 +11,10 @@ Route<dynamic> generateRoute(RouteSettings routeSettings){
         return MaterialPageRoute(
           settings: routeSettings,
           builder:(context) => const AuthScreen(),);
-     case MyTodo.routeName:
+     case TasksScreen.routeName:
         return MaterialPageRoute(
           settings: routeSettings,
-          builder:(context) => const MyTodo(),);  
+          builder:(context) => const TasksScreen(),);  
      case OtpScreen.routeName:
        final arguments = routeSettings.arguments as Map<String,dynamic>;
        final phoneNumber=arguments['phoneNumber'] as String;

@@ -2,9 +2,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:my_todo_app/features/auth/screens/auth_screen.dart';
-import 'package:my_todo_app/features/home/screens/home.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:my_todo_app/features/tasks/screens/todo.dart';
+import 'package:my_todo_app/features/navbar/screens/navbar_screen.dart';
 import 'package:my_todo_app/router.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
@@ -42,7 +41,7 @@ class MyApp extends StatelessWidget {
              );
           }   
           if(snapshot.hasData){
-            return const MyTodo();
+            return const NavBarScreen();
           }   
           return const AuthScreen();
         },),

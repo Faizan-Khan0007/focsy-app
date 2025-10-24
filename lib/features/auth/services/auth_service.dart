@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:my_todo_app/common/widgets/show_flushbar.dart';
-import 'package:my_todo_app/features/tasks/screens/todo.dart';
+import 'package:my_todo_app/features/tasks/screens/tasks_screen.dart';
 
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -37,7 +37,7 @@ class AuthService {
     await Future.delayed(Duration(seconds: 1));
     Navigator.pushNamedAndRemoveUntil(
       context,
-      MyTodo.routeName,
+      TasksScreen.routeName,
       (route) => false,
     );
   }
