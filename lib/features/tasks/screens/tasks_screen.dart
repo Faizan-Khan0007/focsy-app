@@ -60,20 +60,14 @@ class _TasksScreenState extends State<TasksScreen> {
     //final screenHeight=MediaQuery.of(context).size.height;
     return Scaffold(
       backgroundColor: Colors.white,
-      // appBar: AppBar(
-      //   title: Text("TODO TASKS"),
-      //   backgroundColor: Colors.blueGrey,
-      //   elevation: 0,
-      //   centerTitle: true,
-      // ),
       floatingActionButton: FloatingActionButton(
         onPressed: createNewTask,
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
         elevation: 2,
-        child: const Icon(Icons.add, size: 28),
         tooltip: 'Add Task',
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: const Icon(Icons.add, size: 28),
       ),
       body: Stack(
         children: [
@@ -160,8 +154,16 @@ class _TasksScreenState extends State<TasksScreen> {
                     String taskName=taskData['taskName']??'Unnamed Task';
                     bool isCompleted=taskData['isCompleted']?? false;
                     String taskId=doc.id;
+                    int duration=taskData['timerDurationSeconds']??0;
+                    int remaining=taskData['timerRemainingSeconds']??0;
+                    bool isRunning=taskData['isTimerRunning']??false; 
                     return TodoTile(
+                      key: ValueKey(taskId),
+                      taskService:_taskService,
                       taskId: taskId,
+                      initialDurationSeconds: duration,
+                      initialIsRunning: isRunning,
+                      initialRemainingSeconds: remaining,
                       initialTaskName: taskName,
                       initialIsCompleted: isCompleted,
                       onChanged: (value)=>checkboxChanged(value, taskId),
