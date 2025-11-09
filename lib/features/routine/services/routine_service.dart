@@ -144,7 +144,7 @@ class RoutineService {
 
     try {
       int loadedCount = 0;
-      for (var itemData in selectedItems) {
+      for (var itemData in selectedItems.reversed) {
         // Use TaskService to add this item as a NEW task
         await _taskService.addTask(
           context,

@@ -1,8 +1,10 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:my_todo_app/common/widgets/show_flushbar.dart';
 import 'package:my_todo_app/features/routine/services/routine_service.dart';
+import 'package:my_todo_app/providers/nav_bar_provider.dart';
+import 'package:provider/provider.dart';
 
 class RoutineDetailsScreen extends StatefulWidget {
   final String routineId;
@@ -45,7 +47,7 @@ class _RoutineDetailsScreenState extends State<RoutineDetailsScreen> {
         return Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom,
-            top: 20, left: 20, right: 20,
+            right: 20,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -59,6 +61,7 @@ class _RoutineDetailsScreenState extends State<RoutineDetailsScreen> {
                 ),
               ),
               const SizedBox(height: 20),
+              // Title
               TextField(
                 controller: _titleController,
                 autofocus: true,
@@ -74,6 +77,7 @@ class _RoutineDetailsScreenState extends State<RoutineDetailsScreen> {
                 style: GoogleFonts.poppins(),
               ),
               const SizedBox(height: 16),
+              // Description
               TextField(
                 controller: _descriptionController,
                 decoration: InputDecoration(
@@ -89,10 +93,11 @@ class _RoutineDetailsScreenState extends State<RoutineDetailsScreen> {
                 style: GoogleFonts.poppins(),
               ),
               const SizedBox(height: 16),
+              // Duration
               TextField(
                 controller: _durationController,
                 decoration: InputDecoration(
-                  hintText: "Planned Duration (e.g., 2:30:00 or 45 for mins)",
+                  hintText: "Planned Duration (e.g., 45m or 2:30:00)",
                   filled: true,
                   fillColor: Colors.grey[100],
                   border: OutlineInputBorder(
@@ -104,6 +109,7 @@ class _RoutineDetailsScreenState extends State<RoutineDetailsScreen> {
                 keyboardType: TextInputType.text, // For H:M:S or M
               ),
               const SizedBox(height: 20),
+              // Add Button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
@@ -168,9 +174,7 @@ class _RoutineDetailsScreenState extends State<RoutineDetailsScreen> {
   // --- Function to "Load" selected items to the Tasks tab ---
   void _loadTasks() async {
     if (_selectedItems.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Select at least one item to load.")),
-      );
+      showTopFlushbar(context, "Select at least one item to load.");
       return;
     }
 
@@ -190,6 +194,14 @@ class _RoutineDetailsScreenState extends State<RoutineDetailsScreen> {
     }
   }
 
+  // --- Function to navigate to the Tasks tab ---
+  void _goToTasksScreen() {
+    // 1. Pop this screen to go back to the main NavBarScreen
+    Navigator.pop(context);
+    // 2. Use the provider to tell the NavBarScreen to switch to Tab 0
+    Provider.of<NavBarProvider>(context, listen: false).setIndex(0);
+  }
+ 
   @override
   void dispose() {
     _titleController.dispose();
@@ -208,14 +220,81 @@ class _RoutineDetailsScreenState extends State<RoutineDetailsScreen> {
           style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
         ),
       ),
+      // --- MODIFIED Bottom Action Bar ---
+      bottomNavigationBar: BottomAppBar(
+        color: Colors.white,
+        elevation: 10,
+        shape: const CircularNotchedRectangle(), // Shape for the FAB
+        notchMargin: 8.0,
+        child: SizedBox(
+          height: 60.0,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween, // This stays
+            children: <Widget>[
+              // Left side: "View Tasks" button (your new idea)
+              Padding(
+                padding: const EdgeInsets.only(left: 16.0),
+                child: TextButton.icon(
+                  onPressed: _goToTasksScreen, // Call our new function
+                  icon: const Icon(Icons.check_circle_outline, size: 20),
+                  label: Text(
+                    "View Tasks",
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                    ),
+                  ),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Theme.of(context).primaryColor,
+                  ),
+                ),
+              ),
+              // Right side: "Load Tasks" button (CHANGED: Removed Expanded)
+              AnimatedOpacity(
+                opacity: _selectedItems.isNotEmpty ? 1.0 : 0.5,
+                duration: const Duration(milliseconds: 200),
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 16.0), // CHANGED: Simple padding
+                  child: ElevatedButton(
+                    onPressed: _isLoading ? null : _loadTasks,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).primaryColor,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    // --- END FIX ---
+                    child: Text(
+                      // --- DYNAMIC TEXT ---
+                      _selectedItems.isEmpty
+                          ? "Select Items" // Text when disabled
+                          : "Load  ${_selectedItems.length} task", // Text when enabled
+                      // --- END DYNAMIC TEXT ---
+                      style: GoogleFonts.poppins(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                        // Text color is handled automatically by disabled state
+                        color: Colors.white
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked, // <-- CHANGED
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddRoutineItemSheet,
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
         tooltip: 'Add Goal to this Routine',
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: const Icon(Icons.add),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
+      // --- End Modified Bottom Action Bar ---
       body: Column(
         children: [
           // --- Routine Items List ---
@@ -257,6 +336,7 @@ class _RoutineDetailsScreenState extends State<RoutineDetailsScreen> {
                     };
                     
                     bool isSelected = _selectedItems.containsKey(docId);
+                    final duration = Duration(seconds: itemData['durationSeconds'] as int);
 
                     return ListTile(
                       leading: Checkbox(
@@ -273,7 +353,7 @@ class _RoutineDetailsScreenState extends State<RoutineDetailsScreen> {
                         },
                       ),
                       title: Text(
-                        itemData['title']!,
+                        itemData['title']!.toString(),
                         style: GoogleFonts.poppins(
                           fontWeight: FontWeight.w600,
                           color: isSelected ? Colors.grey[500] : Colors.black87,
@@ -282,7 +362,7 @@ class _RoutineDetailsScreenState extends State<RoutineDetailsScreen> {
                       ),
                       subtitle: Text(
                         // Show "Desc: ... | Duration: ..."
-                        "Desc: ${itemData['description']!.isEmpty ? 'None' : itemData['description']}\nDuration: ${Duration(seconds: itemData['durationSeconds']!).toString().split('.').first.padLeft(8, "0")}",
+                        "Desc: ${itemData['description']!.toString().isEmpty ? 'None' : itemData['description']}\nDuration: ${duration.toString().split('.').first.padLeft(8, "0")}",
                         maxLines: 3,
                         overflow: TextOverflow.ellipsis,
                         style: GoogleFonts.poppins(
@@ -305,33 +385,7 @@ class _RoutineDetailsScreenState extends State<RoutineDetailsScreen> {
             ),
           ),
           
-          // --- "Load to Tasks" Button ---
-          if (_selectedItems.isNotEmpty && !_isLoading)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  icon: const Icon(Icons.download_for_offline_outlined, color: Colors.white),
-                  label: Text(
-                    "Load ${_selectedItems.length} Item(s) to Tasks",
-                    style: GoogleFonts.poppins(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      color: Colors.white
-                    ),
-                  ),
-                  onPressed: _loadTasks,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).primaryColor,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-              ),
-            ),
+          // Show loading indicator at bottom if loading
           if (_isLoading)
             const Padding(
               padding: EdgeInsets.all(24.0),

@@ -9,7 +9,7 @@ void showTopFlushbar(BuildContext context,String text) {
       size: 28.0,
       color: Colors.blue[300],
     ),
-    duration: const Duration(seconds: 4),
+    duration: const Duration(seconds: 2),
     leftBarIndicatorColor: Colors.blue[300],
     flushbarPosition: FlushbarPosition.TOP, 
     margin: const EdgeInsets.all(8),

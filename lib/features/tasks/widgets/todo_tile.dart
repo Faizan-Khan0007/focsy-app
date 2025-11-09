@@ -257,7 +257,7 @@ class _TodoTileState extends State<TodoTile> {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           decoration: BoxDecoration(
-            color: _isCompleted ? Colors.grey.shade200 : Colors.white,
+            color: _isCompleted ? Colors.grey.shade200 : Color(0xFFB7D5DA),
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
@@ -331,6 +331,18 @@ class _TodoTileState extends State<TodoTile> {
                         ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(duration: Duration(seconds: 1), content: Text("Timer coming soon!")),
                          );
+                    },
+                  ),
+                  IconButton(
+                    icon: Icon(Icons.music_note_outlined, color: Colors.grey, size: 20),
+                    tooltip: "Focus Music (Coming Soon!)",
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          duration: Duration(seconds: 2),
+                          content: Text("Focus Music is coming soon in a future update!"),
+                        ),
+                      );
                     },
                   ),
                   // --- End Timer Section ---
