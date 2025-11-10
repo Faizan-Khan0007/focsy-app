@@ -1,8 +1,11 @@
+// ignore_for_file: deprecated_member_use
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:my_todo_app/features/auth/services/auth_service.dart';
+import 'package:my_todo_app/features/navbar/widgets/daile_quote_dialog.dart';
 import 'package:my_todo_app/features/tasks/services/task_service.dart';
 import 'package:my_todo_app/features/tasks/widgets/todo_tile.dart';
 import 'package:my_todo_app/widget/dialog_box.dart';
@@ -54,7 +57,12 @@ class _TasksScreenState extends State<TasksScreen> {
       },
     );
   }
-
+  void _showQuote() {
+    showDialog(
+      context: context,
+      builder: (context) => const DailyQuoteDialog(),
+    );
+  }
   @override
   Widget build(BuildContext context) {
     //final screenHeight=MediaQuery.of(context).size.height;
@@ -110,15 +118,30 @@ class _TasksScreenState extends State<TasksScreen> {
               Padding(
                 padding: const EdgeInsets.only(
                     top: 80.0, left: 24.0, bottom: 20.0,), // More top padding
-                child: Center(
-                  child: Text(
-                    "Todo Tasks", // Header from design
-                    style: GoogleFonts.poppins(
-                      fontSize: 30, // Larger header font
-                      fontWeight: FontWeight.bold, // Bold header
-                      color: Colors.black87,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(
+                      "Todo Tasks", // Header from design
+                      style: GoogleFonts.poppins(
+                        fontSize: 30, // Larger header font
+                        fontWeight: FontWeight.bold, // Bold header
+                        color: Colors.black87,
+                      ),
                     ),
-                  ),
+                    // --- YOUR NEW QUOTE BUTTON ---
+                    IconButton(
+                      onPressed: _showQuote,
+                      icon: Icon(
+                        Icons.format_quote_rounded, // The quote icon
+                        color: Theme.of(context).primaryColor.withOpacity(0.7),
+                        size: 28,
+                      ),
+                      tooltip: "Quote of the Day",
+                    ),
+                    // --- END NEW BUTTON ---
+                  ],
                 ),
               ),
               //task list from the stream

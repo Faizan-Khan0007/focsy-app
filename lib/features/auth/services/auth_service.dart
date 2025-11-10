@@ -1,5 +1,6 @@
 // ignore_for_file: use_build_context_synchronously
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -9,6 +10,7 @@ import 'package:my_todo_app/features/tasks/screens/tasks_screen.dart';
 class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   Future<void> signUpUserAndSendOTP({
     required BuildContext context,
     required String email,
@@ -19,6 +21,15 @@ class AuthService {
     try {
       UserCredential userCredential = await _auth.createUserWithEmailAndPassword(email: email, password: password);
       await userCredential.user?.updateDisplayName(name);
+      //creating a users document in firestore
+      await _firestore.collection('users').doc(userCredential.user!.uid).set({
+           'uid':userCredential.user!.uid,
+           'name':name,
+           'email':email,
+           'phoneNumber':phoneNumber,
+           'currentStreak':1,
+           'lastLoginDate':Timestamp.now()
+      });
       showTopFlushbar(context, "Sign up successful!");
     }on FirebaseAuthException catch (e) {
       showTopFlushbar(context, e.message??"An error occured during sign up.");
@@ -72,7 +83,17 @@ class AuthService {
         idToken: googleAuth.idToken,
       );
 
-      await _auth.signInWithCredential(credential);
+      final UserCredential userCredential=  await _auth.signInWithCredential(credential);
+      if(userCredential.additionalUserInfo?.isNewUser==true){
+        await _firestore.collection('users').doc(userCredential.user!.uid).set({
+          'uid':userCredential.user!.uid,
+          'name':userCredential.user?.displayName ?? 'Google User',
+          'email':userCredential.user?.email??'',
+          'phoneNumber':userCredential.user?.phoneNumber??'',
+          'currentStreak':1,
+          'lastLoginDate':Timestamp.now()
+        });
+      }
       showTopFlushbar(context, "Google Sign in successful!");
     } on FirebaseAuthException catch(e){
       showTopFlushbar(context, e.message?? "Google Sign in failed.");

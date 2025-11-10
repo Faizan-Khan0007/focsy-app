@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:my_todo_app/features/profile/screens/profile_screen.dart';
+import 'package:my_todo_app/features/profile/services/profile_service.dart';
 import 'package:my_todo_app/features/routine/screens/routine_screen.dart';
 import 'package:my_todo_app/features/tasks/screens/tasks_screen.dart';
 import 'package:my_todo_app/providers/nav_bar_provider.dart';
@@ -14,7 +15,18 @@ class NavBarScreen extends StatefulWidget {
 
 class _NavBarScreenState extends State<NavBarScreen> {
 
-  
+  final ProfileService _profileService = ProfileService();
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((timeStamp) {
+      _checkStreakSilently();
+    },);
+  }
+   void _checkStreakSilently() async {
+    await _profileService.checkAndUpdateStreak();
+    print("Streak check complete.");
+  }
   static const List<Widget> _widgetOptions = <Widget>[
     TasksScreen(),    
     RoutineScreen(), 
