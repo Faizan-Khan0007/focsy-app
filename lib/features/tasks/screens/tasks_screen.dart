@@ -1,14 +1,13 @@
-// ignore_for_file: deprecated_member_use
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:my_todo_app/features/auth/services/auth_service.dart';
 import 'package:my_todo_app/features/navbar/widgets/daile_quote_dialog.dart';
+import 'package:my_todo_app/features/tasks/screens/focus_timer_screen.dart';
 import 'package:my_todo_app/features/tasks/services/task_service.dart';
 import 'package:my_todo_app/features/tasks/widgets/todo_tile.dart';
-import 'package:my_todo_app/widget/dialog_box.dart';
+import 'package:my_todo_app/widget/dialog_box.dart'; // <-- IMPORT NEW SCREEN
 
 class TasksScreen extends StatefulWidget {
   static const String routeName = '/tasks-screen';
@@ -21,7 +20,7 @@ class TasksScreen extends StatefulWidget {
 class _TasksScreenState extends State<TasksScreen> {
   //services
   final User? currentUser = FirebaseAuth.instance.currentUser;
-  final AuthService _authService = AuthService();
+  //final AuthService _authService = AuthService();
   final TaskService _taskService = TaskService();
   final _controller = TextEditingController();
   @override
@@ -31,16 +30,21 @@ class _TasksScreenState extends State<TasksScreen> {
   }
 
   //functions call taskservice methods
-  void deleteTask(String taskId){
+  void deleteTask(String taskId) {
     _taskService.deleteTask(context, taskId);
   }
-  void checkboxChanged(bool?value,String taskId){
-    if(value==null)return;
+
+  void checkboxChanged(bool? value, String taskId) {
+    if (value == null) return;
     _taskService.updateTaskCompletion(context, taskId, value);
   }
+
   void saveNewTask() {
     if (_controller.text.trim().isEmpty) return;
-    _taskService.addTask(context, _controller.text.trim());
+    _taskService.addTask(
+      context,
+      _controller.text.trim(),
+    );
     _controller.clear();
     Navigator.of(context).pop();
   }
@@ -57,12 +61,37 @@ class _TasksScreenState extends State<TasksScreen> {
       },
     );
   }
+
   void _showQuote() {
     showDialog(
       context: context,
       builder: (context) => const DailyQuoteDialog(),
     );
   }
+
+  // --- NEW: Function to navigate to Focus Screen ---
+  void _navigateToFocusScreen(Map<String, dynamic> taskData, String taskId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FocusScreen(
+          taskId: taskId,
+          taskName: taskData['taskName'] ?? 'Unnamed Task',
+          taskDescription: taskData['description'] ?? '',
+          initialDurationSeconds: taskData['timerDurationSeconds'] ?? 0,
+          initialRemainingSeconds: taskData['timerRemainingSeconds'] ?? 0,
+          initialIsRunning: taskData['isTimerRunning'] ?? false,
+          taskService: _taskService,
+          onTaskCompleted: (value) {
+            // This callback is passed to FocusScreen to mark task complete
+            checkboxChanged(value, taskId);
+          },
+        ),
+      ),
+    );
+  }
+  // --- END NEW ---
+
   @override
   Widget build(BuildContext context) {
     //final screenHeight=MediaQuery.of(context).size.height;
@@ -79,18 +108,17 @@ class _TasksScreenState extends State<TasksScreen> {
       ),
       body: Stack(
         children: [
-           Positioned(
+          Positioned(
             top: -50,
             left: -100,
             child: Opacity(
-              opacity: 0.64,
+              opacity: 0.1, // Made it more subtle
               child: Container(
                 width: 200,
                 height: 200,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Color(0xFFB7D5DA),
-                  //color: Colors.black,
+                  color: Theme.of(context).primaryColor, // Use theme color
                 ),
               ),
             ),
@@ -99,14 +127,13 @@ class _TasksScreenState extends State<TasksScreen> {
             top: -100,
             left: 0,
             child: Opacity(
-              opacity: 0.64,
+              opacity: 0.1, // Made it more subtle
               child: Container(
                 width: 200,
                 height: 200,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Color(0xFFB7D5DA),
-                  //color: Colors.black,
+                  color: Theme.of(context).primaryColor, // Use theme color
                 ),
               ),
             ),
@@ -118,6 +145,7 @@ class _TasksScreenState extends State<TasksScreen> {
               Padding(
                 padding: const EdgeInsets.only(
                     top: 80.0, left: 24.0, bottom: 20.0,), // More top padding
+                // --- MODIFIED HEADER ---
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   crossAxisAlignment: CrossAxisAlignment.center,
@@ -143,6 +171,7 @@ class _TasksScreenState extends State<TasksScreen> {
                     // --- END NEW BUTTON ---
                   ],
                 ),
+                // --- END MODIFIED HEADER ---
               ),
               //task list from the stream
               Expanded(
@@ -153,45 +182,55 @@ class _TasksScreenState extends State<TasksScreen> {
                     return Center(
                       child: Text(
                         'Something went wrong: ${snapshot.error}',
-                        style: TextStyle(color: Colors.red),
+                        style: const TextStyle(color: Colors.red),
                       ),
                     );
                   }
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Center(child: CircularProgressIndicator());
+                    return const Center(child: CircularProgressIndicator());
                   }
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return const Center(
+                    // --- This is the "Empty State" UI ---
+                    // We can add the "Plan Your Day" button here later
+                    return Center(
                       child: Text(
-                        'No tasks yet. Add your first task!',
-                        style: TextStyle(fontSize: 16, color: Colors.grey),
+                        "No tasks yet. Add your first task!",
+                        textAlign: TextAlign.center,
+                        style: GoogleFonts.poppins(fontSize: 18, color: Colors.grey),
                       ),
                     );
+                    // --- End Empty State ---
                   }
-                return ListView.builder(
-                  padding: const EdgeInsets.only(left: 12.0, right: 12.0, bottom: 90.0),
-                  itemCount: snapshot.data!.docs.length,
-                  itemBuilder: (context, index) {
-                    DocumentSnapshot doc=snapshot.data!.docs[index];
-                    Map<String,dynamic> taskData=doc.data() as Map<String,dynamic>;//firestore returns data in the form of map data like json object so we are converting to dart map to easily worked on 
-                    String taskName=taskData['taskName']??'Unnamed Task';
-                    bool isCompleted=taskData['isCompleted']?? false;
-                    String taskId=doc.id;
-                    int duration=taskData['timerDurationSeconds']??0;
-                    int remaining=taskData['timerRemainingSeconds']??0;
-                    bool isRunning=taskData['isTimerRunning']??false; 
-                    return TodoTile(
-                      key: ValueKey(taskId),
-                      taskService:_taskService,
-                      taskId: taskId,
-                      initialDurationSeconds: duration,
-                      initialIsRunning: isRunning,
-                      initialRemainingSeconds: remaining,
-                      initialTaskName: taskName,
-                      initialIsCompleted: isCompleted,
-                      onChanged: (value)=>checkboxChanged(value, taskId),
-                      deleteTask: (p0) => deleteTask(taskId),);
-                  },);
+                  return ListView.builder(
+                    padding: const EdgeInsets.only(
+                        left: 12.0, right: 12.0, bottom: 90.0),
+                    itemCount: snapshot.data!.docs.length,
+                    itemBuilder: (context, index) {
+                      DocumentSnapshot doc = snapshot.data!.docs[index];
+                      Map<String, dynamic> taskData =
+                          doc.data() as Map<String, dynamic>;
+                      String taskId = doc.id;
+
+                      return TodoTile(
+                        key: ValueKey(taskId),
+                        // taskService: _taskService, // No longer needed in tile
+                        taskId: taskId,
+                        taskName: taskData['taskName'] ?? 'Unnamed Task',
+                        isCompleted: taskData['isCompleted'] ?? false,
+                        durationSeconds: taskData['timerDurationSeconds'] ?? 0,
+                        onChanged: (value) => checkboxChanged(value, taskId),
+                        deleteTask: (p0) => deleteTask(taskId),
+                        // --- WIRE UP THE TAP CALLBACK ---
+                        onTap: () {
+                          // Don't navigate if task is already complete
+                          if (!(taskData['isCompleted'] ?? false)) {
+                             _navigateToFocusScreen(taskData, taskId);
+                          }
+                        },
+                        // --- END WIRE UP ---
+                      );
+                    },
+                  );
                 },
               ))
             ],
