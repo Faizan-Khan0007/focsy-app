@@ -4,8 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:my_todo_app/features/navbar/widgets/daile_quote_dialog.dart';
 import 'package:my_todo_app/features/tasks/screens/focus_timer_screen.dart';
+// import 'package:my_todo_app/features/auth/services/auth_service.dart'; // Not used here
 import 'package:my_todo_app/features/tasks/services/task_service.dart';
-import 'package:my_todo_app/features/tasks/widgets/todo_tile.dart'; 
+import 'package:my_todo_app/features/tasks/widgets/todo_tile.dart';
 
 class TasksScreen extends StatefulWidget {
   static const String routeName = '/tasks-screen';
@@ -18,11 +19,14 @@ class TasksScreen extends StatefulWidget {
 class _TasksScreenState extends State<TasksScreen> {
   //services
   final User? currentUser = FirebaseAuth.instance.currentUser;
-  //final AuthService _authService = AuthService();
+  // final AuthService _authService = AuthService(); // Not used here
   final TaskService _taskService = TaskService();
+  
+  // Controllers for the bottom sheet
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _durationController = TextEditingController();
+  
   @override
   void dispose() {
     super.dispose();
@@ -41,10 +45,8 @@ class _TasksScreenState extends State<TasksScreen> {
     _taskService.updateTaskCompletion(context, taskId, value);
   }
 
-  void saveNewTask() {
-    if (_titleController.text.trim().isEmpty) return;
-
-    // --- Parse Duration (same logic as Routine) ---
+  // --- NEW: Helper Function for parsing duration ---
+  int _parseDuration() {
     int totalSeconds = 0;
     final input = _durationController.text.trim();
     if (input.isNotEmpty) {
@@ -55,13 +57,26 @@ class _TasksScreenState extends State<TasksScreen> {
         } else if (parts.length == 2) { // MM:SS
           totalSeconds = (parts[0] * 60) + parts[1];
         } else if (parts.length == 1) { // M (Minutes)
-          totalSeconds = parts[0] * 60;
+          totalSeconds = int.parse(input) * 60; // Handle single number as minutes
         }
       } catch (e) { /* Fails silently */ }
     }
-    // --- End Parse Duration ---
+    return totalSeconds;
+  }
+  
+  // --- NEW: Helper to clear controllers and pop ---
+  void _clearControllersAndPop() {
+     _titleController.clear();
+    _descriptionController.clear();
+    _durationController.clear();
+    Navigator.of(context).pop(); // Close the bottom sheet
+  }
 
-    // Call the updated addTask service
+  // --- MODIFIED: This function is now called by the bottom sheet to ADD ---
+  void _saveNewTask() {
+    if (_titleController.text.trim().isEmpty) return;
+    int totalSeconds = _parseDuration(); // Use helper
+
     _taskService.addTask(
       context,
       _titleController.text.trim(),
@@ -69,16 +84,43 @@ class _TasksScreenState extends State<TasksScreen> {
       durationSeconds: totalSeconds,
     );
     
-    _titleController.clear();
-    _descriptionController.clear();
-    _durationController.clear();
-    Navigator.of(context).pop(); // Close the bottom sheet
+    _clearControllersAndPop();
   }
 
-  void createNewTask() {
-    _titleController.clear();
-    _descriptionController.clear();
-    _durationController.clear();
+  // --- NEW: Function to UPDATE ---
+  void _updateTask(String taskId) {
+    if (_titleController.text.trim().isEmpty) return;
+    int totalSeconds = _parseDuration(); // Use helper
+
+    _taskService.updateTaskDetails(
+      context: context,
+      taskId: taskId,
+      title: _titleController.text.trim(),
+      description: _descriptionController.text.trim(),
+      durationSeconds: totalSeconds,
+    );
+
+    _clearControllersAndPop();
+  }
+
+  // --- MODIFIED: This now shows the advanced bottom sheet for ADD or EDIT ---
+  void _showTaskSheet({DocumentSnapshot? taskDoc}) {
+    bool isEditing = taskDoc != null;
+    
+    // If editing, pre-fill the controllers
+    if (isEditing) {
+      final data = taskDoc.data() as Map<String, dynamic>;
+      _titleController.text = data['taskName'] ?? '';
+      _descriptionController.text = data['description'] ?? '';
+      final duration = Duration(seconds: data['timerDurationSeconds'] ?? 0);
+      // Format as HH:MM:SS
+      _durationController.text = duration.toString().split('.').first.padLeft(8, "0");
+    } else {
+      // If adding, clear them
+      _titleController.clear();
+      _descriptionController.clear();
+      _durationController.clear();
+    }
 
     showModalBottomSheet(
       context: context,
@@ -97,7 +139,7 @@ class _TasksScreenState extends State<TasksScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                "Add New Task",
+                isEditing ? "Edit Task" : "Add New Task", // Dynamic Title
                 style: GoogleFonts.poppins(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -140,7 +182,7 @@ class _TasksScreenState extends State<TasksScreen> {
               TextField(
                 controller: _durationController,
                 decoration: InputDecoration(
-                  hintText: "Set Timer (e.g., 45m or 1:30:00)",
+                  hintText: "Set Timer (e.g., 45 or 1:30:00)", // Updated hint
                   filled: true,
                   fillColor: Colors.grey[100],
                   border: OutlineInputBorder(
@@ -152,11 +194,18 @@ class _TasksScreenState extends State<TasksScreen> {
                 keyboardType: TextInputType.text,
               ),
               const SizedBox(height: 20),
-              // Add Button
+              // Add/Save Button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: saveNewTask, // Calls the updated save function
+                  onPressed: () {
+                    // --- Call the correct function ---
+                    if (isEditing) {
+                      _updateTask(taskDoc.id);
+                    } else {
+                      _saveNewTask();
+                    }
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).primaryColor,
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -165,7 +214,7 @@ class _TasksScreenState extends State<TasksScreen> {
                     ),
                   ),
                   child: Text(
-                    "Add Task",
+                    isEditing ? "Save Changes" : "Add Task", // Dynamic Text
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
@@ -189,7 +238,6 @@ class _TasksScreenState extends State<TasksScreen> {
     );
   }
 
-  // --- NEW: Function to navigate to Focus Screen ---
   void _navigateToFocusScreen(Map<String, dynamic> taskData, String taskId) {
     Navigator.push(
       context,
@@ -203,46 +251,40 @@ class _TasksScreenState extends State<TasksScreen> {
           initialIsRunning: taskData['isTimerRunning'] ?? false,
           taskService: _taskService,
           onTaskCompleted: (value) {
-            // This callback is passed to FocusScreen to mark task complete
             checkboxChanged(value, taskId);
           },
         ),
       ),
     );
   }
-  // --- END NEW ---
 
   @override
   Widget build(BuildContext context) {
-    //final screenHeight=MediaQuery.of(context).size.height;
     return Scaffold(
       backgroundColor: Colors.white,
-      floatingActionButtonLocation: FloatingActionButtonLocation.endContained,
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 10),
-        child: FloatingActionButton(
-          onPressed: createNewTask,
-          backgroundColor: Theme.of(context).primaryColor,
-          foregroundColor: Colors.white,
-          elevation: 2,
-          tooltip: 'Add Task',
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          child: const Icon(Icons.add, size: 28),
-        ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () => _showTaskSheet(), // <-- MODIFIED to call the new function
+        backgroundColor: Theme.of(context).primaryColor,
+        foregroundColor: Colors.white,
+        elevation: 2,
+        tooltip: 'Add Task',
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: const Icon(Icons.add, size: 28),
       ),
       body: Stack(
         children: [
+          // Background circles
           Positioned(
             top: -50,
             left: -100,
             child: Opacity(
-              opacity: 0.1, // Made it more subtle
+              opacity: 0.1,
               child: Container(
                 width: 200,
                 height: 200,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Theme.of(context).primaryColor, // Use theme color
+                  color: Theme.of(context).primaryColor,
                 ),
               ),
             ),
@@ -251,13 +293,13 @@ class _TasksScreenState extends State<TasksScreen> {
             top: -100,
             left: 0,
             child: Opacity(
-              opacity: 0.1, // Made it more subtle
+              opacity: 0.1,
               child: Container(
                 width: 200,
                 height: 200,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Theme.of(context).primaryColor, // Use theme color
+                  color: Theme.of(context).primaryColor,
                 ),
               ),
             ),
@@ -268,36 +310,31 @@ class _TasksScreenState extends State<TasksScreen> {
             children: [
               Padding(
                 padding: const EdgeInsets.only(
-                    top: 80.0, left: 24.0, bottom: 20.0,), // More top padding
-                // --- MODIFIED HEADER ---
+                    top: 70.0, left: 24.0, bottom: 20.0,), // More top padding
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisAlignment: MainAxisAlignment.center, // Changed to spaceBetween
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     Text(
-                      "Todo Tasks", // Header from design
+                      "Todo Tasks",
                       style: GoogleFonts.poppins(
-                        fontSize: 30, // Larger header font
-                        fontWeight: FontWeight.bold, // Bold header
+                        fontSize: 30,
+                        fontWeight: FontWeight.bold,
                         color: Colors.black87,
                       ),
                     ),
-                    // --- YOUR NEW QUOTE BUTTON ---
                     IconButton(
                       onPressed: _showQuote,
                       icon: Icon(
-                        Icons.format_quote_rounded, // The quote icon
+                        Icons.format_quote_rounded,
                         color: Theme.of(context).primaryColor.withOpacity(0.7),
                         size: 28,
                       ),
                       tooltip: "Quote of the Day",
                     ),
-                    // --- END NEW BUTTON ---
                   ],
                 ),
-                // --- END MODIFIED HEADER ---
               ),
-              //task list from the stream
               Expanded(
                   child: StreamBuilder<QuerySnapshot>(
                 stream: _taskService.getTasksStream(),
@@ -315,10 +352,9 @@ class _TasksScreenState extends State<TasksScreen> {
                   }
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                     // --- This is the "Empty State" UI ---
-                    // We can add the "Plan Your Day" button here later
                     return Center(
                       child: Text(
-                        "No tasks yet. Add your first task!",
+                        "No tasks yet!\nGo to the Routine tab to load your plan.",
                         textAlign: TextAlign.center,
                         style: GoogleFonts.poppins(fontSize: 18, color: Colors.grey),
                       ),
@@ -334,22 +370,25 @@ class _TasksScreenState extends State<TasksScreen> {
                       Map<String, dynamic> taskData =
                           doc.data() as Map<String, dynamic>;
                       String taskId = doc.id;
+                      bool isCompleted = taskData['isCompleted'] ?? false;
 
                       return TodoTile(
                         key: ValueKey(taskId),
-                        // taskService: _taskService, // No longer needed in tile
                         taskId: taskId,
                         taskName: taskData['taskName'] ?? 'Unnamed Task',
-                        isCompleted: taskData['isCompleted'] ?? false,
+                        isCompleted: isCompleted,
                         durationSeconds: taskData['timerDurationSeconds'] ?? 0,
+                        taskService: _taskService, // Pass the service
                         onChanged: (value) => checkboxChanged(value, taskId),
                         deleteTask: (p0) => deleteTask(taskId),
-                        // --- WIRE UP THE TAP CALLBACK ---
                         onTap: () {
-                          // Don't navigate if task is already complete
-                          if (!(taskData['isCompleted'] ?? false)) {
-                             _navigateToFocusScreen(taskData, taskId);
+                          if (!isCompleted) {
+                            _navigateToFocusScreen(taskData, taskId);
                           }
+                        },
+                        // --- WIRE UP THE NEW EDIT CALLBACK ---
+                        onEdit: () {
+                          _showTaskSheet(taskDoc: doc);
                         },
                         // --- END WIRE UP ---
                       );

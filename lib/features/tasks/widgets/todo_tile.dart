@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:my_todo_app/features/tasks/services/task_service.dart';
 
 class TodoTile extends StatelessWidget { // Changed to StatelessWidget
   final String taskId;
@@ -10,9 +11,11 @@ class TodoTile extends StatelessWidget { // Changed to StatelessWidget
   final bool isCompleted;
   final int durationSeconds; // We still pass this
   
+  final TaskService taskService;
   Function(bool?)? onChanged;
   Function(BuildContext)? deleteTask;
   VoidCallback? onTap; // --- NEW: Callback for tapping the tile ---
+  VoidCallback? onEdit;
 
   TodoTile({
     required Key key,
@@ -20,9 +23,11 @@ class TodoTile extends StatelessWidget { // Changed to StatelessWidget
     required this.taskName,
     required this.isCompleted,
     required this.durationSeconds, // Pass duration
+    required this.taskService,
     required this.onChanged,
     required this.deleteTask,
     required this.onTap, // --- NEW ---
+    required this.onEdit,
   }) : super(key: key);
 
   // Helper to format Duration (e.g., 01:00:00 or 25:00)
@@ -44,18 +49,28 @@ class TodoTile extends StatelessWidget { // Changed to StatelessWidget
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(left: 16.0, right: 16.0, top: 16.0),
-      child: Slidable(
+      child:  Slidable(
         endActionPane: ActionPane(
-          motion: const StretchMotion(),
-          extentRatio: 0.25,
+          motion: const ScrollMotion(),
+          extentRatio: 0.43,
           children: [
+            SlidableAction(
+              onPressed: (ctx) => onEdit?.call(),
+              icon: Icons.edit_rounded,
+              backgroundColor: const Color.fromARGB(255, 81, 58, 143),
+              foregroundColor: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+             // label: 'Edit',
+            ),
+            SizedBox(width: 10,),
             SlidableAction(
               onPressed: deleteTask,
               icon: Icons.delete_outline,
-              backgroundColor: Colors.red.shade300,
+              backgroundColor: Colors.redAccent.shade400,
               foregroundColor: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-            )
+              borderRadius: BorderRadius.circular(10),
+             // label: 'Delete',
+            ),
           ],
         ),
         // --- MODIFIED: Use InkWell to make it tappable ---

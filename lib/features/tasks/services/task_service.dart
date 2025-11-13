@@ -55,7 +55,34 @@ class TaskService {
       showTopFlushbar(context, "Error adding task: ${e.toString()}");
     }
   }
+  //updating task details 
+  Future<void> updateTaskDetails({
+    required BuildContext context,
+    required String taskId,
+    required String title,
+    required String description,
+    required int durationSeconds,
+  }) async {
+    if (title.trim().isEmpty) {
+      showTopFlushbar(context, "Task title cannot be empty.");
+      return;
+    }
+    try {
+      await _userTasksCollection().doc(taskId).update({
+        'taskName': title.trim(),
+        'description': description.trim(),
+        'timerDurationSeconds': durationSeconds,
+        // We also reset the remaining time and pause the timer
+        'timerRemainingSeconds': durationSeconds, 
+        'isTimerRunning': false,
+      });
+      showTopFlushbar(context, "Task updated successfully!");
+    } catch (e) {
+      showTopFlushbar(context, "Error updating task: ${e.toString()}");
+    }
+  }
   
+  //updating task completion 
  Future<void> updateTaskCompletion(BuildContext context,String taskId,bool isCompleted)async{
   try{
     await _userTasksCollection().doc(taskId).update({
