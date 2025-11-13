@@ -121,6 +121,30 @@ class RoutineService {
     }
   }
 
+  // --- NEW: UPDATE an existing item ---
+  Future<void> updateRoutineItem({
+    required BuildContext context,
+    required String itemId,
+    required String title,
+    required String description,
+    required int durationSeconds,
+  }) async {
+    if (title.trim().isEmpty) {
+      showTopFlushbar(context, "Goal title cannot be empty.");
+      return;
+    }
+    try {
+      await _getRoutineItemsCollection().doc(itemId).update({
+        'title': title.trim(),
+        'description': description.trim(),
+        'durationSeconds': durationSeconds,
+        // We don't update createdAt, as that's just for ordering
+      });
+    } catch (e) {
+      showTopFlushbar(context, "Error updating item: ${e.toString()}");
+    }
+  }
+
    // Delete a single ITEM from a routine template
   Future<void> deleteRoutineItem(BuildContext context, String itemId) async {
     try {

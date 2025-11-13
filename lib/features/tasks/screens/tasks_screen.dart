@@ -2,12 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:my_todo_app/features/auth/services/auth_service.dart';
 import 'package:my_todo_app/features/navbar/widgets/daile_quote_dialog.dart';
 import 'package:my_todo_app/features/tasks/screens/focus_timer_screen.dart';
 import 'package:my_todo_app/features/tasks/services/task_service.dart';
-import 'package:my_todo_app/features/tasks/widgets/todo_tile.dart';
-import 'package:my_todo_app/widget/dialog_box.dart'; // <-- IMPORT NEW SCREEN
+import 'package:my_todo_app/features/tasks/widgets/todo_tile.dart'; 
 
 class TasksScreen extends StatefulWidget {
   static const String routeName = '/tasks-screen';
@@ -22,11 +20,15 @@ class _TasksScreenState extends State<TasksScreen> {
   final User? currentUser = FirebaseAuth.instance.currentUser;
   //final AuthService _authService = AuthService();
   final TaskService _taskService = TaskService();
-  final _controller = TextEditingController();
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _descriptionController = TextEditingController();
+  final TextEditingController _durationController = TextEditingController();
   @override
   void dispose() {
     super.dispose();
-    _controller.dispose();
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _durationController.dispose();
   }
 
   //functions call taskservice methods
@@ -40,24 +42,142 @@ class _TasksScreenState extends State<TasksScreen> {
   }
 
   void saveNewTask() {
-    if (_controller.text.trim().isEmpty) return;
+    if (_titleController.text.trim().isEmpty) return;
+
+    // --- Parse Duration (same logic as Routine) ---
+    int totalSeconds = 0;
+    final input = _durationController.text.trim();
+    if (input.isNotEmpty) {
+      final parts = input.split(':').map((e) => int.tryParse(e) ?? 0).toList();
+      try {
+        if (parts.length == 3) { // HH:MM:SS
+          totalSeconds = (parts[0] * 3600) + (parts[1] * 60) + parts[2];
+        } else if (parts.length == 2) { // MM:SS
+          totalSeconds = (parts[0] * 60) + parts[1];
+        } else if (parts.length == 1) { // M (Minutes)
+          totalSeconds = parts[0] * 60;
+        }
+      } catch (e) { /* Fails silently */ }
+    }
+    // --- End Parse Duration ---
+
+    // Call the updated addTask service
     _taskService.addTask(
       context,
-      _controller.text.trim(),
+      _titleController.text.trim(),
+      description: _descriptionController.text.trim(),
+      durationSeconds: totalSeconds,
     );
-    _controller.clear();
-    Navigator.of(context).pop();
+    
+    _titleController.clear();
+    _descriptionController.clear();
+    _durationController.clear();
+    Navigator.of(context).pop(); // Close the bottom sheet
   }
 
   void createNewTask() {
-    _controller.clear();
-    showDialog(
+    _titleController.clear();
+    _descriptionController.clear();
+    _durationController.clear();
+
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) {
-        return DialogBox(
-            controller: _controller,
-            onsaved: saveNewTask,
-            oncancel: () => Navigator.of(context).pop());
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            top: 20, left: 20, right: 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Add New Task",
+                style: GoogleFonts.poppins(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 20),
+              // Title
+              TextField(
+                controller: _titleController,
+                autofocus: true,
+                decoration: InputDecoration(
+                  hintText: "Task Title (e.g., Physics)",
+                  filled: true,
+                  fillColor: Colors.grey[100],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                style: GoogleFonts.poppins(),
+              ),
+              const SizedBox(height: 16),
+              // Description
+              TextField(
+                controller: _descriptionController,
+                decoration: InputDecoration(
+                  hintText: "Details (e.g., Chapter 4 & 5)",
+                  filled: true,
+                  fillColor: Colors.grey[100],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                maxLines: 2,
+                style: GoogleFonts.poppins(),
+              ),
+              const SizedBox(height: 16),
+              // Duration
+              TextField(
+                controller: _durationController,
+                decoration: InputDecoration(
+                  hintText: "Set Timer (e.g., 45m or 1:30:00)",
+                  filled: true,
+                  fillColor: Colors.grey[100],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                style: GoogleFonts.poppins(),
+                keyboardType: TextInputType.text,
+              ),
+              const SizedBox(height: 20),
+              // Add Button
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: saveNewTask, // Calls the updated save function
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).primaryColor,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: Text(
+                    "Add Task",
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 20),
+            ],
+          ),
+        );
       },
     );
   }
@@ -97,14 +217,18 @@ class _TasksScreenState extends State<TasksScreen> {
     //final screenHeight=MediaQuery.of(context).size.height;
     return Scaffold(
       backgroundColor: Colors.white,
-      floatingActionButton: FloatingActionButton(
-        onPressed: createNewTask,
-        backgroundColor: Theme.of(context).primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 2,
-        tooltip: 'Add Task',
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: const Icon(Icons.add, size: 28),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endContained,
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: FloatingActionButton(
+          onPressed: createNewTask,
+          backgroundColor: Theme.of(context).primaryColor,
+          foregroundColor: Colors.white,
+          elevation: 2,
+          tooltip: 'Add Task',
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: const Icon(Icons.add, size: 28),
+        ),
       ),
       body: Stack(
         children: [

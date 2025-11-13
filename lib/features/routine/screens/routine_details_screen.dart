@@ -1,7 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:my_todo_app/common/widgets/show_flushbar.dart';
 import 'package:my_todo_app/features/routine/services/routine_service.dart';
 import 'package:my_todo_app/providers/nav_bar_provider.dart';
 import 'package:provider/provider.dart';
@@ -31,11 +30,21 @@ class _RoutineDetailsScreenState extends State<RoutineDetailsScreen> {
   final Map<String, Map<String, dynamic>> _selectedItems = {};
   bool _isLoading = false;
 
-  // --- Function to show the "Add New Item" bottom sheet ---
-  void _showAddRoutineItemSheet() {
-    _titleController.clear();
-    _descriptionController.clear();
-    _durationController.clear();
+  // --- MODIFIED: This function now handles BOTH adding and editing ---
+  void _showAddOrEditItemSheet({Map<String, dynamic>? existingItem}) {
+    bool isEditing = existingItem != null;
+
+    // --- Pre-fill fields if editing ---
+    if (isEditing) {
+      _titleController.text = existingItem['title'] ?? '';
+      _descriptionController.text = existingItem['description'] ?? '';
+      final duration = Duration(seconds: existingItem['durationSeconds'] ?? 0);
+      _durationController.text = duration.toString().split('.').first.padLeft(8, "0");
+    } else {
+      _titleController.clear();
+      _descriptionController.clear();
+      _durationController.clear();
+    }
 
     showModalBottomSheet(
       context: context,
@@ -47,14 +56,15 @@ class _RoutineDetailsScreenState extends State<RoutineDetailsScreen> {
         return Padding(
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom,
-            right: 20,
+            top: 20, left: 20, right: 20,
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                "Add Goal to '${widget.routineName}'",
+                // Dynamic title
+                isEditing ? "Edit Goal" : "Add New Goal",
                 style: GoogleFonts.poppins(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -109,11 +119,18 @@ class _RoutineDetailsScreenState extends State<RoutineDetailsScreen> {
                 keyboardType: TextInputType.text, // For H:M:S or M
               ),
               const SizedBox(height: 20),
-              // Add Button
+              // Add/Save Button
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _addRoutineItem,
+                  onPressed: () {
+                    // --- Call the correct function ---
+                    if (isEditing) {
+                      _updateRoutineItem(existingItem['id']);
+                    } else {
+                      _addRoutineItem();
+                    }
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).primaryColor,
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -122,7 +139,8 @@ class _RoutineDetailsScreenState extends State<RoutineDetailsScreen> {
                     ),
                   ),
                   child: Text(
-                    "Add Goal",
+                    // Dynamic button text
+                    isEditing ? "Save Changes" : "Add Goal",
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
@@ -139,11 +157,8 @@ class _RoutineDetailsScreenState extends State<RoutineDetailsScreen> {
     );
   }
 
-  // --- Function to add a new item ---
-  void _addRoutineItem() {
-    if (_titleController.text.trim().isEmpty) return;
-
-    // --- Parse Duration ---
+  // --- Parse Duration Function (Helper) ---
+  int _parseDuration() {
     int totalSeconds = 0;
     final input = _durationController.text.trim();
     if (input.isNotEmpty) {
@@ -158,7 +173,13 @@ class _RoutineDetailsScreenState extends State<RoutineDetailsScreen> {
         }
       } catch (e) { /* Fails silently, totalSeconds remains 0 */ }
     }
-    // --- End Parse Duration ---
+    return totalSeconds;
+  }
+  
+  // --- Function to add a new item ---
+  void _addRoutineItem() {
+    if (_titleController.text.trim().isEmpty) return;
+    final totalSeconds = _parseDuration();
 
     _routineService.addRoutineItem(
       context: context,
@@ -167,14 +188,31 @@ class _RoutineDetailsScreenState extends State<RoutineDetailsScreen> {
       description: _descriptionController.text.trim(),
       durationSeconds: totalSeconds,
     );
-
     Navigator.pop(context); // Close the bottom sheet
   }
+
+  // --- NEW: Function to update an item ---
+  void _updateRoutineItem(String itemId) {
+     if (_titleController.text.trim().isEmpty) return;
+    final totalSeconds = _parseDuration();
+
+    _routineService.updateRoutineItem(
+      context: context, 
+      itemId: itemId, 
+      title: _titleController.text.trim(), 
+      description: _descriptionController.text.trim(), 
+      durationSeconds: totalSeconds
+    );
+    Navigator.pop(context); // Close the bottom sheet
+  }
+
 
   // --- Function to "Load" selected items to the Tasks tab ---
   void _loadTasks() async {
     if (_selectedItems.isEmpty) {
-      showTopFlushbar(context, "Select at least one item to load.");
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Select at least one item to load.")),
+      );
       return;
     }
 
@@ -220,8 +258,8 @@ class _RoutineDetailsScreenState extends State<RoutineDetailsScreen> {
           style: GoogleFonts.poppins(fontWeight: FontWeight.w600),
         ),
       ),
-      // --- MODIFIED Bottom Action Bar ---
-      bottomNavigationBar: BottomAppBar(
+      // --- Modified Bottom Action Bar ---
+       bottomNavigationBar: BottomAppBar(
         color: Colors.white,
         elevation: 10,
         shape: const CircularNotchedRectangle(), // Shape for the FAB
@@ -229,7 +267,7 @@ class _RoutineDetailsScreenState extends State<RoutineDetailsScreen> {
         child: SizedBox(
           height: 60.0,
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween, // This stays
+            mainAxisAlignment: MainAxisAlignment.spaceBetween, // <-- THIS IS KEY
             children: <Widget>[
               // Left side: "View Tasks" button (your new idea)
               Padding(
@@ -249,34 +287,30 @@ class _RoutineDetailsScreenState extends State<RoutineDetailsScreen> {
                   ),
                 ),
               ),
-              // Right side: "Load Tasks" button (CHANGED: Removed Expanded)
-              AnimatedOpacity(
-                opacity: _selectedItems.isNotEmpty ? 1.0 : 0.5,
-                duration: const Duration(milliseconds: 200),
-                child: Padding(
-                  padding: const EdgeInsets.only(right: 16.0), // CHANGED: Simple padding
-                  child: ElevatedButton(
-                    onPressed: _isLoading ? null : _loadTasks,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).primaryColor,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+              // Right side: "Load Tasks" button (CHANGED: No more AnimatedOpacity)
+              Padding(
+                padding: const EdgeInsets.only(right: 16.0), // Padding on the right
+                child: ElevatedButton(
+                  // Button is disabled if loading OR if no items are selected
+                  onPressed: (_isLoading || _selectedItems.isEmpty) ? null : _loadTasks,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).primaryColor,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                    // --- END FIX ---
-                    child: Text(
-                      // --- DYNAMIC TEXT ---
-                      _selectedItems.isEmpty
-                          ? "Select Items" // Text when disabled
-                          : "Load  ${_selectedItems.length} task", // Text when enabled
-                      // --- END DYNAMIC TEXT ---
-                      style: GoogleFonts.poppins(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 14,
-                        // Text color is handled automatically by disabled state
-                        color: Colors.white
-                      ),
+                    // This makes the button grayed out when disabled
+                    disabledBackgroundColor: Colors.grey.shade300, 
+                  ),
+                  child: Text(
+                    // Dynamic text
+                    _selectedItems.isEmpty
+                        ? "Select Items" // Text when disabled
+                        : _selectedItems.length==1?"Load ${_selectedItems.length} Task":"Load ${_selectedItems.length} Tasks", // Text when enabled
+                    style: GoogleFonts.poppins(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Colors.white
                     ),
                   ),
                 ),
@@ -285,14 +319,17 @@ class _RoutineDetailsScreenState extends State<RoutineDetailsScreen> {
           ),
         ),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked, // <-- CHANGED
+      // --- THIS IS THE FIX ---
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked, // <-- MOVED TO CENTER
+      // --- END FIX ---
       floatingActionButton: FloatingActionButton(
-        onPressed: _showAddRoutineItemSheet,
+        onPressed: () => _showAddOrEditItemSheet(), // Call the multi-purpose function
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
         tooltip: 'Add Goal to this Routine',
+        elevation: 4.0,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), // Make it pop a bit more
         child: const Icon(Icons.add),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       ),
       // --- End Modified Bottom Action Bar ---
       body: Column(
@@ -320,7 +357,7 @@ class _RoutineDetailsScreenState extends State<RoutineDetailsScreen> {
 
                 // Build the list of checkable routine items
                 return ListView.builder(
-                  padding: const EdgeInsets.only(bottom: 120),
+                  padding: const EdgeInsets.only(bottom: 120,top: 10),
                   itemCount: snapshot.data!.docs.length,
                   itemBuilder: (context, index) {
                     DocumentSnapshot doc = snapshot.data!.docs[index];
@@ -369,14 +406,27 @@ class _RoutineDetailsScreenState extends State<RoutineDetailsScreen> {
                           color: isSelected ? Colors.grey[400] : Colors.grey[600],
                         ),
                       ),
-                      trailing: IconButton(
-                        icon: Icon(Icons.delete_outline, color: Colors.red[300], size: 20),
-                        onPressed: () {
-                          _routineService.deleteRoutineItem(context, docId);
-                          setState(() {
-                            _selectedItems.remove(docId);
-                          });
-                        },
+                      // --- NEW: Trailing buttons for Edit and Delete ---
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: Icon(Icons.edit_outlined, color: Colors.grey[600], size: 20),
+                            onPressed: () {
+                              // Call the bottom sheet in "edit" mode
+                              _showAddOrEditItemSheet(existingItem: itemData);
+                            },
+                          ),
+                          IconButton(
+                            icon: Icon(Icons.delete_outline, color: Colors.red[300], size: 20),
+                            onPressed: () {
+                              _routineService.deleteRoutineItem(context, docId);
+                              setState(() {
+                                _selectedItems.remove(docId);
+                              });
+                            },
+                          ),
+                        ],
                       ),
                     );
                   },
