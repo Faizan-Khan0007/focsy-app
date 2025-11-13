@@ -17,9 +17,13 @@ class _RoutineScreenState extends State<RoutineScreen> {
   final TextEditingController _templateNameController = TextEditingController();
 
   // --- Function to show the "Add New Template" bottom sheet ---
-  void _showAddTemplateSheet() {
-    _templateNameController.clear();
-
+  void __showAddOrEditTemplateSheet({String? existingRoutineId, String? existingName}) {
+    bool isEditing = existingRoutineId != null;
+    if(isEditing){
+      _templateNameController.text=existingName??'';
+    }else{
+      _templateNameController.clear();
+    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -37,7 +41,7 @@ class _RoutineScreenState extends State<RoutineScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                "New Routine Template",
+                isEditing ? "Edit Template Name" : "New Routine Template", // Dynamic title
                 style: GoogleFonts.poppins(
                   fontSize: 22,
                   fontWeight: FontWeight.bold,
@@ -57,13 +61,26 @@ class _RoutineScreenState extends State<RoutineScreen> {
                   ),
                 ),
                 style: GoogleFonts.poppins(),
-                onSubmitted: (_) => _addRoutineTemplate(), // Allow submit on enter
+                onSubmitted: (_) { // Allow submit on enter
+                   if (isEditing) {
+                    _updateRoutineTemplate(existingRoutineId);
+                  } else {
+                    _addRoutineTemplate();
+                  }
+                },
               ),
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: _addRoutineTemplate,
+                  onPressed: () {
+                    // --- Call the correct function ---
+                    if (isEditing) {
+                      _updateRoutineTemplate(existingRoutineId);
+                    } else {
+                      _addRoutineTemplate();
+                    }
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).primaryColor,
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -72,7 +89,7 @@ class _RoutineScreenState extends State<RoutineScreen> {
                     ),
                   ),
                   child: Text(
-                    "Create Template",
+                    isEditing ? "Save Changes" : "Create Template", // Dynamic button text
                     style: GoogleFonts.poppins(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
@@ -95,6 +112,18 @@ class _RoutineScreenState extends State<RoutineScreen> {
       _routineService.addRoutineTemplate(
         context,
         _templateNameController.text.trim(),
+      );
+      _templateNameController.clear();
+      Navigator.pop(context); // Close the bottom sheet
+    }
+  }
+  
+  void _updateRoutineTemplate(String routineId) {
+     if (_templateNameController.text.trim().isNotEmpty) {
+      _routineService.updateRoutineTemplateName(
+        context: context,
+        routineId: routineId,
+        newName: _templateNameController.text.trim(),
       );
       _templateNameController.clear();
       Navigator.pop(context); // Close the bottom sheet
@@ -125,7 +154,7 @@ class _RoutineScreenState extends State<RoutineScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       floatingActionButton: FloatingActionButton(
-        onPressed: _showAddTemplateSheet,
+        onPressed: __showAddOrEditTemplateSheet,
         backgroundColor: Theme.of(context).primaryColor,
         foregroundColor: Colors.white,
         tooltip: 'Add Routine Template',
@@ -191,12 +220,29 @@ class _RoutineScreenState extends State<RoutineScreen> {
                           "Tap to view or edit items",
                            style: GoogleFonts.poppins(),
                         ),
-                        trailing: IconButton( // Button to delete the whole template
-                          icon: Icon(Icons.delete_outline, color: Colors.red[300], size: 22),
-                          onPressed: () {
-                            // Optional: Show confirmation dialog
-                            _routineService.deleteRoutineTemplate(context, routineId);
-                          },
+                       trailing: Row(
+                          mainAxisSize: MainAxisSize.min, // Squeeze buttons together
+                          children: [
+                            IconButton(
+                              icon: Icon(Icons.edit_outlined, color: Colors.grey[600], size: 22),
+                              onPressed: () {
+                                // Call the bottom sheet in "edit" mode
+                                __showAddOrEditTemplateSheet(
+                                  existingRoutineId: routineId,
+                                  existingName: templateName
+                                );
+                              },
+                              tooltip: "Edit name",
+                            ),
+                            IconButton( 
+                              icon: Icon(Icons.delete_outline, color: Colors.red[300], size: 22),
+                              onPressed: () {
+                                // Optional: Show confirmation dialog
+                                _routineService.deleteRoutineTemplate(context, routineId);
+                              },
+                              tooltip: "Delete routine",
+                            ),
+                          ],
                         ),
                         onTap: () {
                           // Go to the new details screen

@@ -53,6 +53,19 @@ class RoutineService {
       showTopFlushbar(context, "Error adding routine: ${e.toString()}");
     }
   }
+
+  //updating the routine item template name
+  Future<void> updateRoutineTemplateName({required BuildContext context,required String routineId,required String newName})async{
+    if (newName.trim().isEmpty) {
+      showTopFlushbar(context, "Template name cannot be empty.");
+      return;
+    }
+    try{
+      await _getRoutineTemplatesCollection().doc(routineId).update({'name':newName.trim()});
+    }catch(e){
+       showTopFlushbar(context, "Error updating routine: ${e.toString()}");
+    }
+  }
   
   // Delete an entire ROUTINE TEMPLATE (and all its items)
   Future<void> deleteRoutineTemplate(BuildContext context, String routineId) async {
