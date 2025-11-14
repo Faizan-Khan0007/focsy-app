@@ -40,7 +40,6 @@ dependencies:
   flutter_slidable: ^3.1.2
   hive: ^2.2.3
   hive_flutter: ^1.1.0
-  flutter_local_notifications: ^19.5.0
   audioplayers: ^6.5.1
   pinput: ^5.0.2
   another_flushbar: ^1.12.32
@@ -49,6 +48,8 @@ dependencies:
   google_sign_in: ^6.2.1
   cloud_firestore: ^6.0.3
   provider: ^6.1.5+1
+  flutter_background_service: ^5.1.0
+  flutter_local_notifications: ^17.0.0
 
 dev_dependencies:
   flutter_test:

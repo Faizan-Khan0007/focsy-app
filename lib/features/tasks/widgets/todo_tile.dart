@@ -57,7 +57,8 @@ class TodoTile extends StatelessWidget { // Changed to StatelessWidget
             SlidableAction(
               onPressed: (ctx) => onEdit?.call(),
               icon: Icons.edit_rounded,
-              backgroundColor: const Color.fromARGB(255, 81, 58, 143),
+              backgroundColor: const Color.fromARGB(255, 89, 65, 154),
+              //Color.fromARGB(255, 81, 58, 143),
               foregroundColor: Colors.white,
               borderRadius: BorderRadius.circular(10),
              // label: 'Edit',

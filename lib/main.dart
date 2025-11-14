@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:my_todo_app/features/auth/screens/auth_screen.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:my_todo_app/features/navbar/screens/navbar_screen.dart';
+import 'package:my_todo_app/features/tasks/services/background_service.dart';
 import 'package:my_todo_app/providers/nav_bar_provider.dart';
 import 'package:my_todo_app/router.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -17,6 +18,7 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  await initializeService();
   runApp(
     ChangeNotifierProvider(create: (context) => NavBarProvider(),
     child: const MyApp(),));

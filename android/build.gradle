@@ -1,26 +1,20 @@
-buildscript {
-    // --- THIS IS THE FIX ---
-    // Make sure this version is up-to-date
-    ext.kotlin_version = '1.8.22' 
-    // --- END FIX ---
-
-    repositories {
-        google()
-        mavenCentral()
-    }
-
-    dependencies {
-        // This line might be slightly different for you, which is fine
-        classpath 'com.android.tools.build:gradle:7.4.2' 
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-        // This line is added by FlutterFire
-        classpath 'com.google.gms:google-services:4.4.1' // Or your version
-    }
-}
 allprojects {
     repositories {
         google()
         mavenCentral()
+    }
+
+    // THIS IS THE FIX:
+    // We moved the namespace workaround block inside "allprojects"
+    // so it runs at the correct time.
+    afterEvaluate { project ->
+        if (project.hasProperty('android')) {
+            project.android {
+                if (namespace == null && project.group != null) {
+                    namespace project.group
+                }
+            }
+        }
     }
 }
 
@@ -35,3 +29,6 @@ subprojects {
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }
+
+// The "subprojects { afterEvaluate ... }" block that was
+// at the end of the file is now GONE.

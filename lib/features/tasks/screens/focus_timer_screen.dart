@@ -1,8 +1,10 @@
-// ignore_for_file: must_be_immutable
+// ignore_for_file: must_be_immutable, use_build_context_synchronously, avoid_print
 
 import 'dart:async';
+
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_background_service/flutter_background_service.dart'; // <-- IMPORTED
 import 'package:google_fonts/google_fonts.dart';
 import 'package:my_todo_app/features/tasks/services/task_service.dart';
 
@@ -33,55 +35,78 @@ class FocusScreen extends StatefulWidget {
 }
 
 class _FocusScreenState extends State<FocusScreen> {
-  // Timer State
-  Timer? _timer;
+  // --- STATE REFACTORED ---
+  final _service = FlutterBackgroundService();
+  StreamSubscription<Map<String, dynamic>?>? _serviceSubscription;
+
   late Duration _fullDuration;
-  late Duration _currentTime;
+  late int _currentSeconds; // Changed from Duration to int
   late bool _isRunning;
   final AudioPlayer _audioPlayer = AudioPlayer();
+  // --- END REFACTOR ---
 
   @override
   void initState() {
     super.initState();
     _fullDuration = Duration(seconds: widget.initialDurationSeconds);
-    // If remaining time is 0, start with the full duration
-    _currentTime = Duration(
-        seconds: widget.initialRemainingSeconds > 0
-            ? widget.initialRemainingSeconds
-            : widget.initialDurationSeconds);
+    
+    // Set initial time
+    _currentSeconds = widget.initialRemainingSeconds > 0
+        ? widget.initialRemainingSeconds
+        : widget.initialDurationSeconds;
+    
     _isRunning = widget.initialIsRunning;
     _audioPlayer.setPlayerMode(PlayerMode.lowLatency);
 
-    // Auto-start timer if it was running
+    // --- NEW: Listen to the background service ---
+    _serviceSubscription = _service.on('update').listen((payload) {
+      if (payload == null) return;
+      
+      int newSeconds = payload['remainingSeconds'];
+      
+      // Update the UI state from the service
+      if (mounted) {
+        setState(() {
+          _currentSeconds = newSeconds;
+          if (newSeconds == 0 && _isRunning) {
+            // Timer finished while we were watching
+            _isRunning = false; 
+            _timerFinished(); // Call the dialog/sound function
+          }
+        });
+      }
+    });
+    // --- END NEW ---
+
+    // Auto-start timer if it was running when we entered the screen
     if (_isRunning) {
-      _startTimer();
+      _startTimerService();
     }
   }
 
   @override
   void dispose() {
-    // When leaving the screen, pause the timer and save the state
-    if (_isRunning) {
-      _pauseTimer(saveState: true);
-    }
-    _timer?.cancel();
+    // --- NEW: Stop listening to the service ---
+    _serviceSubscription?.cancel();
     _audioPlayer.dispose();
     super.dispose();
   }
 
-  // --- Timer Logic (Moved from TodoTile) ---
+  // --- TIMER LOGIC REFACTORED TO CONTROL SERVICE ---
+  
   void _toggleTimer() {
     if (_isRunning) {
-      _pauseTimer(saveState: true);
+      _pauseTimerService();
     } else {
-      if (_currentTime == Duration.zero) {
-        _resetTimer(notifyFirestore: false); // Don't notify, _startTimer will
+      if (_currentSeconds == 0) {
+        // If timer is at 0, reset it before starting
+        _resetTimer(notifyService: false); // Don't notify, _startTimer will
       }
-      _startTimer();
+      _startTimerService();
     }
   }
 
-  void _startTimer() {
+  void _startTimerService() {
     if (_fullDuration.inSeconds == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -89,55 +114,51 @@ class _FocusScreenState extends State<FocusScreen> {
       );
       return;
     }
-    setState(() {
-      _isRunning = true;
+    
+    setState(() { _isRunning = true; });
+
+    // Tell the service to start
+    _service.invoke('start', {
+      'taskId': widget.taskId,
+      'taskName': widget.taskName,
+      'remainingSeconds': _currentSeconds,
     });
-    // Save timer state to Firestore
+
+    // We also save the 'running' state from the UI side
     widget.taskService.updateTimerState(context, widget.taskId,
-        remainingSeconds: _currentTime.inSeconds, isRunning: true);
-
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (_currentTime.inSeconds > 0) {
-        setState(() {
-          _currentTime -= const Duration(seconds: 1);
-        });
-      } else {
-        _timerFinished();
-      }
-    });
+        remainingSeconds: _currentSeconds, isRunning: true);
+    
+    // Tell the service to show the notification
+    _service.invoke('setAsForeground');
   }
 
-  void _pauseTimer({bool saveState = false}) {
-    _timer?.cancel();
+  void _pauseTimerService() {
+    setState(() { _isRunning = false; });
+    
+    // Tell the service to pause
+    _service.invoke('pause');
+    
+    // The service handles saving the state to Firestore now,
+    // so no updateTimerState call is needed from the UI.
+  }
+
+  void _resetTimer({bool notifyService = true}) {
     setState(() {
+      _currentSeconds = _fullDuration.inSeconds;
       _isRunning = false;
     });
-    if (saveState) {
-      // Save timer state to Firestore
-      widget.taskService.updateTimerState(context, widget.taskId,
-          remainingSeconds: _currentTime.inSeconds, isRunning: false);
+
+    if (notifyService) {
+      // Tell the service to reset
+      _service.invoke('reset', {
+        'taskId': widget.taskId,
+        'fullDuration': _fullDuration.inSeconds,
+      });
     }
   }
 
-  void _resetTimer({bool notifyFirestore = true}) {
-    _timer?.cancel();
-    setState(() {
-      _currentTime = _fullDuration;
-      _isRunning = false;
-    });
-    if (notifyFirestore) {
-      // Save the "reset" state to Firestore
-      widget.taskService.updateTimerState(context, widget.taskId,
-          remainingSeconds: _fullDuration.inSeconds, isRunning: false);
-    }
-  }
-
+  // This function is now just for sound/dialog
   void _timerFinished() async {
-    _timer?.cancel();
-    setState(() {
-      _isRunning = false;
-      _currentTime = _fullDuration; // Reset timer UI
-    });
     // Call the callback to mark task as complete on the main list
     widget.onTaskCompleted(true);
 
@@ -178,7 +199,9 @@ class _FocusScreenState extends State<FocusScreen> {
     }
   }
 
-  String _formatDuration(Duration d) {
+  // --- UPDATED to accept int seconds ---
+  String _formatDuration(int totalSeconds) {
+    final d = Duration(seconds: totalSeconds);
     String twoDigits(int n) => n.toString().padLeft(2, '0');
     final hours = d.inHours.abs();
     final minutes = d.inMinutes.remainder(60).abs();
@@ -186,6 +209,7 @@ class _FocusScreenState extends State<FocusScreen> {
     if (hours > 0) return "$hours:${twoDigits(minutes)}:${twoDigits(seconds)}";
     return "${twoDigits(minutes)}:${twoDigits(seconds)}";
   }
+  // --- END UPDATE ---
 
   @override
   Widget build(BuildContext context) {
@@ -236,7 +260,8 @@ class _FocusScreenState extends State<FocusScreen> {
                   borderRadius: BorderRadius.circular(30),
                 ),
                 child: Text(
-                  _formatDuration(_currentTime),
+                  // --- UPDATED to use _currentSeconds ---
+                  _formatDuration(_currentSeconds),
                   style: GoogleFonts.poppins(
                     fontSize: 72,
                     fontWeight: FontWeight.w600,
@@ -253,7 +278,7 @@ class _FocusScreenState extends State<FocusScreen> {
                 width: double.infinity,
                 height: 60,
                 child: ElevatedButton.icon(
-                  onPressed: _toggleTimer,
+                  onPressed: _toggleTimer, // <-- Controls the service
                   icon:
                       Icon(_isRunning ? Icons.pause : Icons.play_arrow, size: 30),
                   label: Text(
@@ -275,7 +300,7 @@ class _FocusScreenState extends State<FocusScreen> {
 
               // Reset Button
               TextButton.icon(
-                onPressed: () => _resetTimer(notifyFirestore: true),
+                onPressed: () => _resetTimer(notifyService: true), // <-- Controls the service
                 icon: Icon(Icons.refresh, color: Colors.grey[600]),
                 label: Text(
                   "Reset Timer",
